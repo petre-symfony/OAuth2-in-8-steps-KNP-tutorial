@@ -103,12 +103,7 @@ class CoopOAuthController extends BaseController{
     if($this->isUserLoggedIn()){
       $user = $this->getLoggedInUser();
     } else {
-      $user = $this->createUser(
-        $json['email'], 
-        '',
-        $json['firstName'],
-        $json['lastName']
-      );
+      $user = $this->findOrCreateUser($json);
       
       $this->loginUser($user);
     }
@@ -121,5 +116,17 @@ class CoopOAuthController extends BaseController{
     
     //redirects to the homepage
     return $this->redirect($this->generateUrl('home'));
+  }
+  
+  private function findOrCreateUser(array $myData){
+    if ($user = $this->findUserByCOOPId($myData['id'])){
+      return $user;  
+    } else {
+      return $this->createUser($myData['email'],
+        '',
+        $myData['firstName'],
+        $myData['lastName']
+      ); 
+    }
   }
 }
