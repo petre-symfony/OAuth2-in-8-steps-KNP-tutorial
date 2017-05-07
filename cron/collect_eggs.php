@@ -17,10 +17,11 @@ $request = $http->post('/token', null, array(
 ));
 $response = $request->send();
 $responseBody = $response->getBody(true);
-var_dump($responseBody); die;
+$responseArr = json_decode($responseBody, true);
+$accesToken = $responseArr['access_token'];
 
 $request = $http->post('/api/1664/eggs-collect');
-$request->addHeader('Authorization', 'Bearer 44901de9f0598a4967e1c941e760a9ea75524f6d');
+$request->addHeader('Authorization', 'Bearer '.$accesToken);
 $response = $request->send();
 
 echo $response->getBody();
