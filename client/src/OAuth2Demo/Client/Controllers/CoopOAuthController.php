@@ -121,12 +121,18 @@ class CoopOAuthController extends BaseController{
   private function findOrCreateUser(array $myData){
     if ($user = $this->findUserByCOOPId($myData['id'])){
       return $user;  
-    } else {
-      return $this->createUser($myData['email'],
-        '',
-        $myData['firstName'],
-        $myData['lastName']
-      ); 
     }
+    
+    if ($user = $this->findUserByEmail($myData['email'])){
+      //if you don't trust the email, stop and force them to type
+      //in their TopCluck password to provide their identity
+      return $user;
+    }
+    
+    return $this->createUser($myData['email'],
+      '',
+      $myData['firstName'],
+      $myData['lastName']
+    ); 
   }
 }
