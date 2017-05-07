@@ -50,6 +50,18 @@ class CoopOAuthController extends BaseController{
     // equivalent to $_GET['code']
     $code = $request->get('code');
     
+    if(!$code){
+      $error = $request->get('error');
+      $errorDescription = $request->get('error_description');
+      
+      return $this->render('failed_authorization.twig', array(
+        'response' => array(
+          'error'             => $error,
+          'errorDescription'  => $errorDescription
+        )
+      ));
+    }
+    
     // create our http client (Guzzle)
     $http = new Client('http://coop.apps.knpuniversity.com', array(
         'request.options' => array(
@@ -84,6 +96,7 @@ class CoopOAuthController extends BaseController{
     $user = $this->getLoggedInUser();
     $user->coopAccessToken = $accesToken;
     $user->coopUserId = $json['id'];
+    $user->coopAccessExpiresAt = $expiresAt;
     $this->saveUser($user);
     
     echo $response->getBody();die;
