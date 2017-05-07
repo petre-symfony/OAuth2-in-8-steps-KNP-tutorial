@@ -10,7 +10,7 @@ $http = new Client('http://coop.apps.knpuniversity.com', array(
     )
 ));
 
-$request = $http->post('/api/1664/eggs-collect');
+$request = $http->post('/api/166/eggs-collect');
 $request->addHeader('Authorization', 'Bearer 44901de9f0598a4967e1c941e760a9ea75524f6d');
 $response = $request->send();
 
