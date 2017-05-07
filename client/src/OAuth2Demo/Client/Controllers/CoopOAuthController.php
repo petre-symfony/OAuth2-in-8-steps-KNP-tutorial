@@ -12,7 +12,6 @@ class CoopOAuthController extends BaseController{
     $routing->get('/coop/oauth/start', array(new self(), 'redirectToAuthorization'))->bind('coop_authorize_start');
     $routing->get('/coop/oauth/handle', array(new self(), 'receiveAuthorizationCode'))->bind('coop_authorize_redirect');
   }
-
   /**
    * This page actually redirects to the COOP authorize page and begins
    * the typical, "auth code" OAuth grant type flow.
@@ -21,9 +20,22 @@ class CoopOAuthController extends BaseController{
    * @return RedirectResponse
    */
   public function redirectToAuthorization(Request $request){
-    die('Implement this in CoopOAuthController::redirectToAuthorization');
+    $redirectUrl = $this->generateUrl(
+      'coop_authorize_redirect', 
+      array(), 
+      true
+    );
+    
+    $url = 'http://coop.apps.knpuniversity.com/authorize?'.http_build_query(array(
+      'response_type' => 'code',
+      'client_id'     => 'Peter Top Cluck',
+      'redirect_uri'  => $redirectUrl,
+      'scope'         => 'eggs-count profile'
+    ));
+    
+    return $this->redirect($url);
+    
   }
-
   /**
    * This is the URL that COOP will redirect back to after the user approves/denies access
    *
@@ -37,7 +49,37 @@ class CoopOAuthController extends BaseController{
   public function receiveAuthorizationCode(Application $app, Request $request){
     // equivalent to $_GET['code']
     $code = $request->get('code');
-
+    
+    // create our http client (Guzzle)
+    $http = new Client('http://coop.apps.knpuniversity.com', array(
+        'request.options' => array(
+            'exceptions' => false,
+        )
+    ));
+    $redirectUrl = $this->generateUrl(
+      'coop_authorize_redirect', 
+      array(), 
+      true
+    );
+    
+    $request = $http->post('/token', null, array(
+      'client_id'     => 'Peter Top Cluck',
+      'client_secret' => 'feb19d51c9211f0b93e11ee445f10c76',
+      'grant_type'    => 'authorization_code',
+      'code'          => $code,
+      'redirect_uri'  => $redirectUrl  
+    ));
+    $response = $request->send();
+    $responseBody = $response->getBody(true);
+    $responseArr = json_decode($responseBody, true);
+    $accesToken = $responseArr['access_token'];
+    $expiresIn = $responseArr['expires_in'];
+    
+    $request = $http->get('/api/me');
+    $request->addHeader('Authorization', 'Bearer '.$accesToken);
+    $response = $request->send();
+    
+    echo $response->getBody();die;
     die('Implement this in CoopOAuthController::receiveAuthorizationCode');
   }
 }
