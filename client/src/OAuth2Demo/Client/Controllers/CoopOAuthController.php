@@ -51,6 +51,32 @@ class CoopOAuthController extends BaseController{
   public function receiveAuthorizationCode(Application $app, Request $request){
     // equivalent to $_GET['code']
     $code = $request->get('code');
+    
+    // create our http client (Guzzle)
+    $http = new Client('http://coop.apps.knpuniversity.com', array(
+        'request.options' => array(
+            'exceptions' => false,
+        )
+    ));
+
+    $redirectUrl = $this->generateUrl(
+      'coop_authorize_redirect', 
+      array(), 
+      true
+    );
+    
+    $request = $http->post('/token', null, array(
+      'client_id'     => 'Peter Top Cluck',
+      'client_secret' => 'feb19d51c9211f0b93e11ee445f10c76',
+      'grant_type'    => 'authorization_code',
+      'code'          => $code,
+      'redirect_uri'  => $redirectUrl  
+    ));
+    $response = $request->send();
+    $responseBody = $response->getBody(true);
+    var_dump($responseBody); die;
+    $responseArr = json_decode($responseBody, true);
+    $accesToken = $responseArr['access_token'];
 
     die('Implement this in CoopOAuthController::receiveAuthorizationCode');
   }
