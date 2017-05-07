@@ -84,6 +84,12 @@ class CoopOAuthController extends BaseController{
     $response = $request->send();
     $responseBody = $response->getBody(true);
     $responseArr = json_decode($responseBody, true);
+    if (!isset($responseArr['access_token'])){
+      return $this->render('failed_token_request.twig', array(
+        'response' => $responseArr ? $responseArr : $response
+      ));
+    }
+    
     $accesToken = $responseArr['access_token'];
     $expiresIn = $responseArr['expires_in'];
     $expiresAt = new \DateTime('+' . $expiresIn . ' seconds');
@@ -99,7 +105,7 @@ class CoopOAuthController extends BaseController{
     $user->coopAccessExpiresAt = $expiresAt;
     $this->saveUser($user);
     
-    echo $response->getBody();die;
-    die('Implement this in CoopOAuthController::receiveAuthorizationCode');
+    //redirects to the homepage
+    return $this->redirect($this->generateUrl('home'));
   }
 }
