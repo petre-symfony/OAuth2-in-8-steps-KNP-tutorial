@@ -5,6 +5,9 @@ namespace OAuth2Demo\Client\Controllers;
 use Silex\Application;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Facebook\Facebook;
+use Facebook\Exceptions\FacebookResponseException;
+use Facebook\Exceptions\FacebookSDKException;
 
 class FacebookOAuthController extends BaseController {
   public static function addRoutes($routing){
@@ -21,7 +24,16 @@ class FacebookOAuthController extends BaseController {
    * @return RedirectResponse
    */
   public function redirectToAuthorization(){
-    die('Todo: Redirect to Facebook');
+    $facebook = $this->createFacebook();
+    $helper = $facebook->getRedirectLoginHelper();
+    
+    $redirectUrl = $this->generateUrl('facebook_authorize_redirect', array(), true);
+    $url = $helper->getLoginUrl(
+      $redirectUrl,
+      array('email', 'publish_actions')      
+    );
+    
+    return $this->redirect($url);
   }
 
   /**
@@ -35,7 +47,59 @@ class FacebookOAuthController extends BaseController {
    * @return string|RedirectResponse
    */
   public function receiveAuthorizationCode(Application $app, Request $request){
-    die('Todo: Handle after Facebook redirects to us');
+    $facebook = $this->createFacebook();
+    $helper = $facebook->getRedirectLoginHelper();
+    
+    try{
+      $accesToken = $helper->getAccessToken();
+    } catch (FacebookResponseException $e) {
+      return $this->render('failed_token_request.twig', array(
+        'response'      => $e->getMessage()
+      ));
+    } catch (FacebookSDKException $e){
+      return $this->render('failed_token_request.twig', array(
+        'response'      => $e->getMessage()
+      ));
+    }
+    
+    if (!isset($accesToken)){
+      if ($helper->getError()){
+        $error_body = 'Error: ' . $helper->getError() . '<br>';
+        $eror_body .= 'Error Code: ' . $helper->getErrorCode() . '<br>';
+        $eror_body .= 'Error Reason: ' . $helper->getErrorReason() . '<br>';
+        $eror_body .= 'Error Description: ' . $helper->getErrorDescription();
+        return $this->render('failed_token_request.twig', array(
+          'response'      => $eror_body
+        ));
+      } else {
+        $eror_body = 'Bad Request';
+        return $this->render('failed_token_request.twig', array(
+          'response'      => $eror_body 
+        ));
+      }
+    }
+    
+    try{
+      $response = $facebook->get('/me?fields=id,name', $accesToken);
+      $facebookUserId = $response->getGraphUser()['id'];
+      
+      $user = $this->getLoggedInUser();
+      $user->facebookUserId = $facebookUserId;
+      //not a real example for this app - just an example idea
+      // $user->facebookAccessToken = $facebook->getAccessToken();
+      $this->saveUser($user);
+      
+      return $this->redirect($this->generateUrl('home'));
+    } catch (FacebookResponseException $e){
+      return $this->render('failed_authorization.twig', array(
+        'response'      => $e->getMessage()
+      ));
+    } catch (FacebookSDKException $e){
+      return $this->render('failed_authorization.twig', array(
+        'response'      => $e->getMessage()
+      ));
+    };
+  
   }
 
   /**
@@ -48,5 +112,15 @@ class FacebookOAuthController extends BaseController {
     die('Todo: Use Facebook\'s API to post to someone\'s feed');
 
     return $this->redirect($this->generateUrl('home'));
+  }
+  
+  private function createFacebook(){
+    $config = array(
+      'app_id'                  => getenv('FACEBOOK_APP_ID'),
+      'app_secret'              => getenv('FACEBOOK_APP_SECRET'),
+      'default_graph_version'   => 'v2.2'
+    );
+    
+    return new Facebook($config);  
   }
 }
