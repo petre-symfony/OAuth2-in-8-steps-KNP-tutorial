@@ -85,6 +85,8 @@ class FacebookOAuthController extends BaseController {
       
       $user = $this->getLoggedInUser();
       $user->facebookUserId = $facebookUserId;
+      //not a real example for this app - just an example idea
+      // $user->facebookAccessToken = $facebook->getAccessToken();
       $this->saveUser($user);
       
       return $this->redirect($this->generateUrl('home'));
