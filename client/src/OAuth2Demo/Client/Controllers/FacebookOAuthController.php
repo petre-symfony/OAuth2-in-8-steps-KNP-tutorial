@@ -6,6 +6,8 @@ use Silex\Application;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Facebook\Facebook;
+use Facebook\FacebookApp;
+use Facebook\FacebookRequest;
 use Facebook\Exceptions\FacebookResponseException;
 use Facebook\Exceptions\FacebookSDKException;
 
@@ -109,7 +111,38 @@ class FacebookOAuthController extends BaseController {
    * @return RedirectResponse
    */
   public function shareProgressOnFacebook(){
-    die('Todo: Use Facebook\'s API to post to someone\'s feed');
+    $facebook = $this->createFacebook();
+    $eggCount = $this->getTodaysEggCountForUser($this->getLoggedInUser());
+    
+    $fbApp = new FacebookApp(
+      getenv('FACEBOOK_APP_ID'),
+      getenv('FACEBOOK_APP_SECRET')      
+    );
+    $accessToken = $fbApp->getAccessToken();
+    
+    $facebookRequest = new FacebookRequest(
+      $fbApp, 
+      $accessToken, 
+      'POST',
+      '/'.$this->getLoggedInUser()->facebookUserId . '/feed',
+      array(
+        'message' => sprintf('Woh my chickens have laid %s eggs today!', $eggCount)
+      )
+    );
+
+    try {
+      $response = $facebook->getClient()->sendRequest($facebookRequest);
+    } catch (FacebookResponseException $e) {
+      $errorBody = 'Graph returned an error ' . $e->getMessage();
+      return $this->render('failed_authorization.twig', array(
+        'response'      => $errorBody
+      ));
+    } catch (FacebookSDKException $e){
+      $errorBody = 'Facebook SDK returned an error ' . $e->getMessage();
+      return $this->render('failed_authorization.twig', array(
+        'response'      => $errorBody
+      ));
+    }
 
     return $this->redirect($this->generateUrl('home'));
   }
