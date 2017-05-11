@@ -79,7 +79,25 @@ class FacebookOAuthController extends BaseController {
       }
     }
     
-    die('Todo: Handle after Facebook redirects to us');
+    try{
+      $response = $facebook->get('/me?fields=id,name', $accesToken);
+      $facebookUserId = $response->getGraphUser()['id'];
+      
+      $user = $this->getLoggedInUser();
+      $user->facebookUserId = $facebookUserId;
+      $this->saveUser($user);
+      
+      return $this->redirect($this->generateUrl('home'));
+    } catch (FacebookResponseException $e){
+      return $this->render('failed_authorization.twig', array(
+        'response'      => $e->getMessage()
+      ));
+    } catch (FacebookSDKException $e){
+      return $this->render('failed_authorization.twig', array(
+        'response'      => $e->getMessage()
+      ));
+    };
+  
   }
 
   /**
