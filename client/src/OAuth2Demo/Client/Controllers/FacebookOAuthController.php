@@ -6,6 +6,8 @@ use Silex\Application;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Facebook\Facebook;
+use Facebook\Exceptions\FacebookResponseException;
+use Facebook\Exceptions\FacebookSDKException;
 
 class FacebookOAuthController extends BaseController {
   public static function addRoutes($routing){
@@ -47,6 +49,35 @@ class FacebookOAuthController extends BaseController {
   public function receiveAuthorizationCode(Application $app, Request $request){
     $facebook = $this->createFacebook();
     $helper = $facebook->getRedirectLoginHelper();
+    
+    try{
+      $accesToken = $helper->getAccessToken();
+    } catch (FacebookResponseException $e) {
+      return $this->render('failed_token_request.twig', array(
+        'response'      => $e->getMessage()
+      ));
+    } catch (FacebookSDKException $e){
+      return $this->render('failed_token_request.twig', array(
+        'response'      => $e->getMessage()
+      ));
+    }
+    
+    if (!isset($accesToken)){
+      if ($helper->getError()){
+        $error_body = 'Error: ' . $helper->getError() . '<br>';
+        $eror_body .= 'Error Code: ' . $helper->getErrorCode() . '<br>';
+        $eror_body .= 'Error Reason: ' . $helper->getErrorReason() . '<br>';
+        $eror_body .= 'Error Description: ' . $helper->getErrorDescription();
+        return $this->render('failed_token_request.twig', array(
+          'response'      => $eror_body
+        ));
+      } else {
+        $eror_body = 'Bad Request';
+        return $this->render('failed_token_request.twig', array(
+          'response'      => $eror_body 
+        ));
+      }
+    }
     
     die('Todo: Handle after Facebook redirects to us');
   }
