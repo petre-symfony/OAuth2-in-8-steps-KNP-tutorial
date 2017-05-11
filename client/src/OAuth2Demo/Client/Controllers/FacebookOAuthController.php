@@ -133,6 +133,11 @@ class FacebookOAuthController extends BaseController {
     try {
       $response = $facebook->getClient()->sendRequest($facebookRequest);
     } catch (FacebookResponseException $e) {
+      // https://developers.facebook.com/docs/graph-api/using-graph-api/#errors
+      if ($e->getErrorType() == 'OAuthException' || in_array($e->getCode(), array(190, 102))){
+        // our token is bad - reauthorize to get a new token
+        return $this->redirect($this->generateUrl('facebook_authorize_start'));
+      }
       $errorBody = 'Graph returned an error ' . $e->getMessage();
       return $this->render('failed_authorization.twig', array(
         'response'      => $errorBody
