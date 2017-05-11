@@ -22,13 +22,7 @@ class FacebookOAuthController extends BaseController {
    * @return RedirectResponse
    */
   public function redirectToAuthorization(){
-    $config = array(
-      'app_id'                => getenv('FACEBOOK_APP_ID'),
-      'app_secret'            => getenv('FACEBOOK_APP_SECRET'),
-      'default_graph_version' => 'v2.2' 
-    );
-    
-    $facebook = new Facebook($config);
+    $facebook = $this->createFacebook();
     $helper = $facebook->getRedirectLoginHelper();
     
     $redirectUrl = $this->generateUrl('facebook_authorize_redirect', array(), true);
@@ -51,6 +45,9 @@ class FacebookOAuthController extends BaseController {
    * @return string|RedirectResponse
    */
   public function receiveAuthorizationCode(Application $app, Request $request){
+    $facebook = $this->createFacebook();
+    $helper = $facebook->getRedirectLoginHelper();
+    
     die('Todo: Handle after Facebook redirects to us');
   }
 
@@ -64,5 +61,15 @@ class FacebookOAuthController extends BaseController {
     die('Todo: Use Facebook\'s API to post to someone\'s feed');
 
     return $this->redirect($this->generateUrl('home'));
+  }
+  
+  private function createFacebook(){
+    $config = array(
+      'app_id'                  => getenv('FACEBOOK_APP_ID'),
+      'app_secret'              => getenv('FACEBOOK_APP_SECRET'),
+      'default_graph_version'   => 'v2.2'
+    );
+    
+    return new Facebook($config);  
   }
 }
