@@ -120,12 +120,10 @@ class FacebookOAuthController extends BaseController {
       getenv('FACEBOOK_APP_ID'),
       getenv('FACEBOOK_APP_SECRET')      
     );
-    $accessToken = $fbApp->getAccessToken();
     
     $ret = $this->makeApiRequest(
       $facebook,      
-      $fbApp, 
-      $accessToken, 
+      $fbApp,
       'POST', 
       '/'.$this->getLoggedInUser()->facebookUserId . '/feed', 
       array(
@@ -150,7 +148,9 @@ class FacebookOAuthController extends BaseController {
     return new Facebook($config);  
   }
   
-  private function makeApiRequest(Facebook $facebook, FacebookApp $fbApp, $accessToken, $method, $url, $parameters, $retry =true){
+  private function makeApiRequest(Facebook $facebook, FacebookApp $fbApp, $method, $url, $parameters){
+    $accessToken = $fbApp->getAccessToken();
+    
     $facebookRequest = new FacebookRequest(
       $fbApp, 
       $accessToken, 
@@ -164,17 +164,9 @@ class FacebookOAuthController extends BaseController {
     } catch (FacebookResponseException $e) {
       // https://developers.facebook.com/docs/graph-api/using-graph-api/#errors
       if ($e->getErrorType() == 'OAuthException' || in_array($e->getCode(), array(190, 102))){
-        if ($retry) {
-          $user = $this->getLoggedInUser();
-          $facebook->setDefaultAccessToken($user->facebookAccessToken);
-          return $this->makeApiRequest($facebook, $fbApp, $accessToken, $method, $url, $parameters, false);
-        }
+        
         // our token is bad - reauthorize to get a new token
         return $this->redirect($this->generateUrl('facebook_authorize_start'));
-      }
-      
-      if ($retry){
-        return $this->makeApiRequest($facebook, $fbApp, $accessToken, $method, $url, $parameters, false);  
       }
       
       $errorBody = 'Graph returned an error ' . $e->getMessage();
