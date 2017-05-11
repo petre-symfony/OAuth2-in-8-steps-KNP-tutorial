@@ -29,7 +29,15 @@ class FacebookOAuthController extends BaseController {
     );
     
     $facebook = new Facebook($config);
-    die('Todo: Redirect to Facebook');
+    $helper = $facebook->getRedirectLoginHelper();
+    
+    $redirectUrl = $this->generateUrl('facebook_authorize_redirect', array(), true);
+    $url = $helper->getLoginUrl(
+      $redirectUrl,
+      array('email', 'publish_actions')      
+    );
+    
+    return $this->redirect($url);
   }
 
   /**
