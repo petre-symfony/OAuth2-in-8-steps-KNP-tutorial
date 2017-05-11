@@ -5,6 +5,7 @@ namespace OAuth2Demo\Client\Controllers;
 use Silex\Application;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Facebook\Facebook;
 
 class FacebookOAuthController extends BaseController {
   public static function addRoutes($routing){
@@ -21,6 +22,13 @@ class FacebookOAuthController extends BaseController {
    * @return RedirectResponse
    */
   public function redirectToAuthorization(){
+    $config = array(
+      'app_id'                => getenv('FACEBOOK_APP_ID'),
+      'app_secret'            => getenv('FACEBOOK_APP_SECRET'),
+      'default_graph_version' => 'v2.2' 
+    );
+    
+    $facebook = new Facebook($config);
     die('Todo: Redirect to Facebook');
   }
 
