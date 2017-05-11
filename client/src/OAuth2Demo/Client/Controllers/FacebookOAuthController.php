@@ -11,6 +11,7 @@ use Facebook\FacebookRequest;
 use Facebook\Exceptions\FacebookResponseException;
 use Facebook\Exceptions\FacebookSDKException;
 
+
 class FacebookOAuthController extends BaseController {
   public static function addRoutes($routing){
     $routing->get('/facebook/oauth/start', array(new self(), 'redirectToAuthorization'))->bind('facebook_authorize_start');
@@ -114,39 +115,26 @@ class FacebookOAuthController extends BaseController {
     $facebook = $this->createFacebook();
     $eggCount = $this->getTodaysEggCountForUser($this->getLoggedInUser());
     
+    
     $fbApp = new FacebookApp(
       getenv('FACEBOOK_APP_ID'),
       getenv('FACEBOOK_APP_SECRET')      
     );
     $accessToken = $fbApp->getAccessToken();
     
-    $facebookRequest = new FacebookRequest(
+    $ret = $this->makeApiRequest(
+      $facebook,      
       $fbApp, 
       $accessToken, 
-      'POST',
-      '/'.$this->getLoggedInUser()->facebookUserId . '/feed',
+      'POST', 
+      '/'.$this->getLoggedInUser()->facebookUserId . '/feed', 
       array(
         'message' => sprintf('Woh my chickens have laid %s eggs today!', $eggCount)
       )
     );
-
-    try {
-      $response = $facebook->getClient()->sendRequest($facebookRequest);
-    } catch (FacebookResponseException $e) {
-      // https://developers.facebook.com/docs/graph-api/using-graph-api/#errors
-      if ($e->getErrorType() == 'OAuthException' || in_array($e->getCode(), array(190, 102))){
-        // our token is bad - reauthorize to get a new token
-        return $this->redirect($this->generateUrl('facebook_authorize_start'));
-      }
-      $errorBody = 'Graph returned an error ' . $e->getMessage();
-      return $this->render('failed_authorization.twig', array(
-        'response'      => $errorBody
-      ));
-    } catch (FacebookSDKException $e){
-      $errorBody = 'Facebook SDK returned an error ' . $e->getMessage();
-      return $this->render('failed_authorization.twig', array(
-        'response'      => $errorBody
-      ));
+    
+    if ($ret instanceof RedirectResponse){
+      return $ret;
     }
 
     return $this->redirect($this->generateUrl('home'));
@@ -160,5 +148,44 @@ class FacebookOAuthController extends BaseController {
     );
     
     return new Facebook($config);  
+  }
+  
+  private function makeApiRequest(Facebook $facebook, FacebookApp $fbApp, $accessToken, $method, $url, $parameters, $retry =true){
+    $facebookRequest = new FacebookRequest(
+      $fbApp, 
+      $accessToken, 
+      $method,
+      $url,
+      $parameters
+    );
+
+    try {
+      $response = $facebook->getClient()->sendRequest($facebookRequest);
+    } catch (FacebookResponseException $e) {
+      // https://developers.facebook.com/docs/graph-api/using-graph-api/#errors
+      if ($e->getErrorType() == 'OAuthException' || in_array($e->getCode(), array(190, 102))){
+        if ($retry) {
+          $user = $this->getLoggedInUser();
+          $facebook->setDefaultAccessToken($user->facebookAccessToken);
+          return $this->makeApiRequest($facebook, $fbApp, $accessToken, $method, $url, $parameters, false);
+        }
+        // our token is bad - reauthorize to get a new token
+        return $this->redirect($this->generateUrl('facebook_authorize_start'));
+      }
+      
+      if ($retry){
+        return $this->makeApiRequest($facebook, $fbApp, $accessToken, $method, $url, $parameters, false);  
+      }
+      
+      $errorBody = 'Graph returned an error ' . $e->getMessage();
+      return $this->render('failed_authorization.twig', array(
+        'response'      => $errorBody
+      ));
+    } catch (FacebookSDKException $e){
+      $errorBody = 'Facebook SDK returned an error ' . $e->getMessage();
+      return $this->render('failed_authorization.twig', array(
+        'response'      => $errorBody
+      ));
+    }  
   }
 }
