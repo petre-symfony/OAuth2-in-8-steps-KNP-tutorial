@@ -22,7 +22,11 @@
       
       <div class="panel panel-default" style="margin-top: 10px;">
         <div class="panel-body">
-          <a href="{{ path('facebook_authorize_start') }}">Connect with Facebook</a>
+          {% if user.facebookUserId %}
+            <a href="{{ path('facebook_share_place') }}">Share</a>
+          {% else %}
+            <a href="{{ path('facebook_authorize_start') }}">Connect with Facebook</a>
+          {% endif %}
         </div>
       </div>
       
