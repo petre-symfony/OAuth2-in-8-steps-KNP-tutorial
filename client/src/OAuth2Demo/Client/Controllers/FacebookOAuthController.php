@@ -5,6 +5,12 @@ namespace OAuth2Demo\Client\Controllers;
 use Silex\Application;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Facebook\Facebook;
+use Facebook\FacebookApp;
+use Facebook\FacebookRequest;
+use Facebook\Exceptions\FacebookResponseException;
+use Facebook\Exceptions\FacebookSDKException;
+
 
 class FacebookOAuthController extends BaseController {
   public static function addRoutes($routing){
@@ -21,7 +27,16 @@ class FacebookOAuthController extends BaseController {
    * @return RedirectResponse
    */
   public function redirectToAuthorization(){
-    die('Todo: Redirect to Facebook');
+    $facebook = $this->createFacebook();
+    $helper = $facebook->getRedirectLoginHelper();
+    
+    $redirectUrl = $this->generateUrl('facebook_authorize_redirect', array(), true);
+    $url = $helper->getLoginUrl(
+      $redirectUrl,
+      array('email', 'publish_actions')      
+    );
+    
+    return $this->redirect($url);
   }
 
   /**
@@ -35,7 +50,67 @@ class FacebookOAuthController extends BaseController {
    * @return string|RedirectResponse
    */
   public function receiveAuthorizationCode(Application $app, Request $request){
-    die('Todo: Handle after Facebook redirects to us');
+    $facebook = $this->createFacebook();
+    $helper = $facebook->getRedirectLoginHelper();
+    
+    try{
+      $accesToken = $helper->getAccessToken();
+    } catch (FacebookResponseException $e) {
+      return $this->render('failed_token_request.twig', array(
+        'response'      => $e->getMessage()
+      ));
+    } catch (FacebookSDKException $e){
+      return $this->render('failed_token_request.twig', array(
+        'response'      => $e->getMessage()
+      ));
+    }
+    
+    if (!isset($accesToken)){
+      if ($helper->getError()){
+        $error_body = 'Error: ' . $helper->getError() . '<br>';
+        $eror_body .= 'Error Code: ' . $helper->getErrorCode() . '<br>';
+        $eror_body .= 'Error Reason: ' . $helper->getErrorReason() . '<br>';
+        $eror_body .= 'Error Description: ' . $helper->getErrorDescription();
+        return $this->render('failed_token_request.twig', array(
+          'response'      => $eror_body
+        ));
+      } else {
+        $eror_body = 'Bad Request';
+        return $this->render('failed_token_request.twig', array(
+          'response'      => $eror_body 
+        ));
+      }
+    }
+    
+    try{
+      $response = $facebook->get('/me?fields=id,email,name,first_name,last_name', $accesToken);
+      $facebookUserId = $response->getGraphUser()->getId();
+      $facebookUserArray = $response->getGraphUser()->asArray();
+      
+      
+      if ($this->isUserLoggedIn()){
+        $user = $this->getLoggedInUser();
+      } else {
+        $user = $this->findOrCreateUser($facebookUserArray);
+        
+        $this->loginUser($user);
+      }
+      $user->facebookUserId = $facebookUserId;
+      //not a real example for this app - just an example idea
+      // $user->facebookAccessToken = $facebook->getAccessToken();
+      $this->saveUser($user);
+      
+      return $this->redirect($this->generateUrl('home'));
+    } catch (FacebookResponseException $e){
+      return $this->render('failed_authorization.twig', array(
+        'response'      => $e->getMessage()
+      ));
+    } catch (FacebookSDKException $e){
+      return $this->render('failed_authorization.twig', array(
+        'response'      => $e->getMessage()
+      ));
+    };
+  
   }
 
   /**
@@ -45,8 +120,90 @@ class FacebookOAuthController extends BaseController {
    * @return RedirectResponse
    */
   public function shareProgressOnFacebook(){
-    die('Todo: Use Facebook\'s API to post to someone\'s feed');
+    $facebook = $this->createFacebook();
+    $eggCount = $this->getTodaysEggCountForUser($this->getLoggedInUser());
+    
+    
+    $fbApp = new FacebookApp(
+      getenv('FACEBOOK_APP_ID'),
+      getenv('FACEBOOK_APP_SECRET')      
+    );
+    
+    $ret = $this->makeApiRequest(
+      $facebook,      
+      $fbApp,
+      'POST', 
+      '/'.$this->getLoggedInUser()->facebookUserId . '/feed', 
+      array(
+        'message' => sprintf('Woh my chickens have laid %s eggs today!', $eggCount)
+      )
+    );
+    
+    if ($ret instanceof RedirectResponse){
+      return $ret;
+    }
 
     return $this->redirect($this->generateUrl('home'));
+  }
+  
+  private function createFacebook(){
+    $config = array(
+      'app_id'                  => getenv('FACEBOOK_APP_ID'),
+      'app_secret'              => getenv('FACEBOOK_APP_SECRET'),
+      'default_graph_version'   => 'v2.2'
+    );
+    
+    return new Facebook($config);  
+  }
+  
+  private function makeApiRequest(Facebook $facebook, FacebookApp $fbApp, $method, $url, $parameters){
+    $accessToken = $fbApp->getAccessToken();
+    
+    $facebookRequest = new FacebookRequest(
+      $fbApp, 
+      $accessToken, 
+      $method,
+      $url,
+      $parameters
+    );
+
+    try {
+      $response = $facebook->getClient()->sendRequest($facebookRequest);
+    } catch (FacebookResponseException $e) {
+      // https://developers.facebook.com/docs/graph-api/using-graph-api/#errors
+      if ($e->getErrorType() == 'OAuthException' || in_array($e->getCode(), array(190, 102))){
+        
+        // our token is bad - reauthorize to get a new token
+        return $this->redirect($this->generateUrl('facebook_authorize_start'));
+      }
+      
+      $errorBody = 'Graph returned an error ' . $e->getMessage();
+      return $this->render('failed_authorization.twig', array(
+        'response'      => $errorBody
+      ));
+    } catch (FacebookSDKException $e){
+      $errorBody = 'Facebook SDK returned an error ' . $e->getMessage();
+      return $this->render('failed_authorization.twig', array(
+        'response'      => $errorBody
+      ));
+    }  
+  }
+  
+  private function findOrCreateUser(array $myData){
+    if ($user = $this->findUserByFacebookId($myData['id'])){
+      return $user;  
+    }
+    
+    if ($user = $this->findUserByEmail($myData['email'])){
+      //if you don't trust the email, stop and force them to type
+      //in their TopCluck password to provide their identity
+      return $user;
+    }
+    
+    return $this->createUser($myData['email'],
+      '',
+      $myData['first_name'],
+      $myData['last_name']
+    ); 
   }
 }
