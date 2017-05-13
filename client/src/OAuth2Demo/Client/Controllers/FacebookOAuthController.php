@@ -83,10 +83,18 @@ class FacebookOAuthController extends BaseController {
     }
     
     try{
-      $response = $facebook->get('/me?fields=id,name', $accesToken);
-      $facebookUserId = $response->getGraphUser()['id'];
+      $response = $facebook->get('/me?fields=id,email,name,first_name,last_name', $accesToken);
+      $facebookUserId = $response->getGraphUser()->getId();
+      $facebookUserArray = $response->getGraphUser()->asArray();
       
-      $user = $this->getLoggedInUser();
+      
+      if ($this->isUserLoggedIn()){
+        $user = $this->getLoggedInUser();
+      } else {
+        $user = $this->findOrCreateUser($facebookUserArray);
+        
+        $this->loginUser($user);
+      }
       $user->facebookUserId = $facebookUserId;
       //not a real example for this app - just an example idea
       // $user->facebookAccessToken = $facebook->getAccessToken();
@@ -179,5 +187,23 @@ class FacebookOAuthController extends BaseController {
         'response'      => $errorBody
       ));
     }  
+  }
+  
+  private function findOrCreateUser(array $myData){
+    if ($user = $this->findUserByFacebookId($myData['id'])){
+      return $user;  
+    }
+    
+    if ($user = $this->findUserByEmail($myData['email'])){
+      //if you don't trust the email, stop and force them to type
+      //in their TopCluck password to provide their identity
+      return $user;
+    }
+    
+    return $this->createUser($myData['email'],
+      '',
+      $myData['first_name'],
+      $myData['last_name']
+    ); 
   }
 }
