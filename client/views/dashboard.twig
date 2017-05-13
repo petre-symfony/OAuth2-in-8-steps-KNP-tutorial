@@ -55,9 +55,8 @@
       // OAuth 2.0 client ID and scopes (space delimited string) to request access.
       gapi.client.init({
           apiKey: '{{ google_app_key }}',
-          discoveryDocs: ["https://people.googleapis.com/$discovery/rest?version=v1"],
           clientId: '{{ google_app_client_id }}',
-          scope: 'https://www.googleapis.com/auth/plus.me'
+          scope: 'https://www.googleapis.com/auth/plus.login'
       }).then(function () {
         // Ideally the button should only show up after gapi.client.init finishes, so that this
         // handler won't be called before OAuth is initialized.
@@ -75,8 +74,28 @@
     function updateSigninStatus(isSignedIn) {
     // When signin status changes, this function is called.
       if (isSignedIn) {
-        
+        $('.js-google-connect').hide(); 
+        gapi.client.load('plus', 'v1', makeApiCall);
       }
+    }
+    
+    function makeApiCall() {
+      gapi.client.plus.people.list({
+        "userId":"me",
+        "collection": "visible"
+      }).then(function(resp){
+        var $people = $('#google-plus-people');
+        $people.empty();
+        var responseBody = JSON.parse(resp.body);
+        console.log(responseBody['items'].length);
+        if (responseBody['totalItems'] > 0){
+           var numItems = responseBody['items'].length;
+          for (var i = 0; i < numItems; i++) {  
+            var person =  responseBody['items'][i].displayName;
+            $people.append('<img src="' + person.image.url + '">');
+          }  
+        };    
+      })
     }
     
   </script>
