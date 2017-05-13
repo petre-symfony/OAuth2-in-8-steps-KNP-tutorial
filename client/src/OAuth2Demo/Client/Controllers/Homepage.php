@@ -16,9 +16,11 @@ class Homepage extends BaseController {
     // homepage when logged in
     if ($this->isUserLoggedIn()) {
       return $this->render('dashboard.twig', array(
-        'user'          => $this->getLoggedInUser(),
-        'eggCount'      => $this->getTodaysEggCountForUser($this->getLoggedInUser()),
-        'egg_counts'    => $egg_counts,
+        'user'                 => $this->getLoggedInUser(),
+        'eggCount'             => $this->getTodaysEggCountForUser($this->getLoggedInUser()),
+        'egg_counts'           => $egg_counts,
+        'google_app_key'       => getenv('GOOGLE_APP_KEY'),
+        'google_app_client_id' => getenv('GOOGLE_APP_CLIENT_ID')  
       ));
     }
 

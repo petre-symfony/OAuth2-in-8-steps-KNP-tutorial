@@ -30,7 +30,7 @@
         </div>
       </div>
       
-
+      <a href="" class="btn btn-info js-google-connect">Connect with Google+</a> 
     </div>
     <div class="col-md-6">
       {{ include('_leaderboard.twig', { 'egg_counts': egg_counts }) }}
@@ -41,5 +41,47 @@
 {% block javascripts %}
   {{ parent() }}
 
-  {# Put any JavaScript here #}
+  <script type="text/javascript">
+    function handleClientLoad(){
+      // Loads the client library and the auth2 library together for efficiency.
+      // Loading the auth2 library is optional here since `gapi.client.init` function will load
+      // it if not already loaded. Loading it upfront can save one network request.
+      gapi.load('client:auth2', initClient);
+    }
+    
+    function initClient(){
+      // Initialize the client with API key and People API, and initialize OAuth with an
+      // OAuth 2.0 client ID and scopes (space delimited string) to request access.
+      gapi.client.init({
+          apiKey: '{{ google_app_key }}',
+          discoveryDocs: ["https://people.googleapis.com/$discovery/rest?version=v1"],
+          clientId: '{{ google_app_client_id }}',
+          scope: 'https://www.googleapis.com/auth/plus.login'
+      }).then(function () {
+        // Ideally the button should only show up after gapi.client.init finishes, so that this
+        // handler won't be called before OAuth is initialized.
+        $('.js-google-connect').on('click', function(e){
+          e.preventDefault();
+          gapi.auth2.getAuthInstance().signIn();
+        });
+        // Listen for sign-in state changes.
+        gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+        // Handle the initial sign-in state.
+        updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+      });
+    }
+    
+    function updateSigninStatus(isSignedIn) {
+      // When signin status changes, this function is called.
+      if (isSignedIn) {
+
+      }
+    }
+    
+  </script>  
+
+  <script async defer src="https://apis.google.com/js/api.js" 
+    onload="this.onload=function(){};handleClientLoad()" 
+    onreadystatechange="if (this.readyState === 'complete') this.onload()">
+  </script>  
 {% endblock %}
