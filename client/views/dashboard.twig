@@ -1,6 +1,9 @@
 {% extends "base.twig" %}
 
-{% block header %}{% endblock %}
+{% block head %}
+  <meta name="google-signin-client_id" content="{{ google_app_client_id }}" />
+  <meta name="google-signin-scope" content="https://www.googleapis.com/auth/plus.login" />
+{% endblock %}
 
 {% block content %}
   <div class="row">
