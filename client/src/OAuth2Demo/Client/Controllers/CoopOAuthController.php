@@ -85,6 +85,7 @@ class CoopOAuthController extends BaseController{
     $response = $request->send();
     $responseBody = $response->getBody(true);
     $responseArr = json_decode($responseBody, true);
+    var_dump($responseArr);die();
     if (!isset($responseArr['access_token'])){
       return $this->render('failed_token_request.twig', array(
         'response' => $responseArr ? $responseArr : $response
