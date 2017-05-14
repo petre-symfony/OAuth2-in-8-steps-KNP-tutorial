@@ -27,4 +27,22 @@ foreach($expiringTokens as $userInfo){
   $responseBody = $response->getBody(true);
   var_dump($responseBody);
   $responseArr = json_decode($responseBody, true);
+  
+  // add some error handling here, in case the refresh token has expired
+  // in that case, we'll get an error response, instead of an access token
+  $accesToken = $responseArr['access_token'];
+  $expiresIn = $responseArr['expires_in'];
+  $expiresAt = new \DateTime('+'.$expiresIn.' seconds');
+  $refreshToken = $responseArr['refresh_token'];
+  $conn->saveNewTokens(
+    $userInfo['email'],
+    $accesToken,
+    $expiresAt,
+    $refreshToken
+  );
+  echo sprintf(
+    "Refreshing token for user %s: now expires %s\n\n",
+    $userInfo['email'],
+    $expiresAt->format('Y-m-d H:i:s')
+  );
 }
