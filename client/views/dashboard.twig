@@ -1,6 +1,9 @@
 {% extends "base.twig" %}
 
-{% block header %}{% endblock %}
+{% block head %}
+  <meta name="google-signin-client_id" content="{{ google_app_client_id }}" />
+  <meta name="google-signin-scope" content="https://www.googleapis.com/auth/plus.login" />
+{% endblock %}
 
 {% block content %}
   <div class="row">
@@ -13,16 +16,25 @@
         your eggs!
       </div>
 
-      <a class="btn btn-primary btn-lg" href="{{ path('coop_authorize_start') }}">Authorize</a>
+      {% if user.coopUserId %}
+        <a href="{{ path('count_eggs') }}" class="btn btn-primary btn-lg">Count my Eggs!</a>
+      {% else %}
+        <a class="btn btn-primary btn-lg" href="{{ path('coop_authorize_start') }}">Authorize</a>
+      {% endif %}
 
-      {#
+      
       <div class="panel panel-default" style="margin-top: 10px;">
         <div class="panel-body">
-          todo - add Facebook share stuff!
+          {% if user.facebookUserId %}
+            <a href="{{ path('facebook_share_place') }}">Share</a>
+          {% else %}
+            <a href="{{ path('facebook_authorize_start') }}">Connect with Facebook</a>
+          {% endif %}
         </div>
       </div>
-      #}
-
+      
+      <a href="" class="btn btn-info js-google-connect">Connect with Google+</a>  
+      <div id="google-plus-farmers"></div>
     </div>
     <div class="col-md-6">
       {{ include('_leaderboard.twig', { 'egg_counts': egg_counts }) }}
@@ -33,5 +45,66 @@
 {% block javascripts %}
   {{ parent() }}
 
-  {# Put any JavaScript here #}
+  <script type="text/javascript">
+    function handleClientLoad(){
+      // Loads the client library and the auth2 library together for efficiency.
+      // Loading the auth2 library is optional here since `gapi.client.init` function will load
+      // it if not already loaded. Loading it upfront can save one network request.
+      gapi.load('client:auth2', initClient);
+    }
+    
+    function initClient(){
+      // Initialize the client with API key and Google+ API, and initialize OAuth with an
+      // OAuth 2.0 client ID and scopes (space delimited string) to request access.
+      gapi.client.init({
+          apiKey: '{{ google_app_key }}',
+          clientId: '{{ google_app_client_id }}',
+          scope: 'https://www.googleapis.com/auth/plus.login'
+      }).then(function () {
+        // Ideally the button should only show up after gapi.client.init finishes, so that this
+        // handler won't be called before OAuth is initialized.
+        $('.js-google-connect').on('click', function(e){
+          e.preventDefault();
+          gapi.auth2.getAuthInstance().signIn();
+        });
+        // Listen for sign-in state changes.
+        gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+
+        // Handle the initial sign-in state.
+        updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+      });
+    }
+    function updateSigninStatus(isSignedIn) {
+    // When signin status changes, this function is called.
+      if (isSignedIn) {
+        $('.js-google-connect').hide(); 
+        gapi.client.load('plus', 'v1', makeApiCall);
+      }
+    }
+    
+    function makeApiCall() {
+      gapi.client.plus.people.list({
+        "userId":"me",
+        "collection": "visible"
+      }).then(function(resp){
+        var $people = $('#google-plus-people');
+        $people.empty();
+        var responseBody = JSON.parse(resp.body);
+        console.log(responseBody['items'].length);
+        if (responseBody['totalItems'] > 0){
+           var numItems = responseBody['items'].length;
+          for (var i = 0; i < numItems; i++) {  
+            var person =  responseBody['items'][i].displayName;
+            $people.append('<img src="' + person.image.url + '">');
+          }  
+        };    
+      })
+    }
+    
+  </script>
+  
+  <script async defer src="https://apis.google.com/js/api.js" 
+    onload="this.onload=function(){};handleClientLoad()" 
+    onreadystatechange="if (this.readyState === 'complete') this.onload()">
+  </script>
 {% endblock %}
