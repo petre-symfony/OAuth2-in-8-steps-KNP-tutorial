@@ -51,7 +51,6 @@ class CoopOAuthController extends BaseController{
    * @return string|RedirectResponse
    */
   public function receiveAuthorizationCode(Application $app, Request $request){
-    die;
     // equivalent to $_GET['code']
     $code = $request->get('code');
 
@@ -65,6 +64,15 @@ class CoopOAuthController extends BaseController{
           'errorDescription'  => $errorDescription
         )
       ));
+    }
+    
+    if ($request->get('state') != $request->getSession()->get('oauth_state')){
+      return $this->render(
+        'failed_authorization.twig',
+        array('response' => array(
+          'error_description' => 'Your session has expired, try again!'
+        ))      
+      );
     }
     
     // create our http client (Guzzle)
