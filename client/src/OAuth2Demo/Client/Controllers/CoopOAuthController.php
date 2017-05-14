@@ -28,7 +28,7 @@ class CoopOAuthController extends BaseController{
     );
     
     $url = 'http://coop.apps.knpuniversity.com/authorize?'.http_build_query(array(
-      'response_type' => 'code',
+      'response_type' => 'token',
       'client_id'     => 'Peter Top Cluck',
       'redirect_uri'  => $redirectUrl,
       'scope'         => 'eggs-count profile'
@@ -48,6 +48,7 @@ class CoopOAuthController extends BaseController{
    * @return string|RedirectResponse
    */
   public function receiveAuthorizationCode(Application $app, Request $request){
+    die;
     // equivalent to $_GET['code']
     $code = $request->get('code');
 
